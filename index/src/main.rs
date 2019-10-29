@@ -71,7 +71,7 @@ fn try_main() -> Result<()> {
     // write_json(f_out, krates)?;
 
     let pb = setup_progress_bar(5_448_100);
-    let searching = ["serde:0.5", "serde:0.6", "serde:0.7", "serde:0.8", "serde:0.9", "serde:1.0"];
+    let searching = ["serde", "tar"];
     // load_computed sorts array
     let table = load_computed(&pb, f_out)?
         .into_par_iter()
@@ -175,7 +175,6 @@ fn matching_crates(krate: &TransitiveDep, search: &[&str]) -> bool {
         .any(|matcher| {
             matcher.name == krate.name
             && matcher.req.matches(&krate.version)
-            && krate.transitive_count != 0
         })
 }
 
@@ -351,15 +350,9 @@ use chrono::{NaiveDate, NaiveTime};
 use palette;
 use palette::{Hue, Srgb};
 
-fn version_match(ver: &str, row: &TransitiveDep) -> bool {
-    if let Some(ver) = ver.split(':').nth(1) {
-        let pin_req = format!("^{}", ver);
-        let ver_req = VersionReq::parse(&pin_req).expect("version match");
-        ver_req.matches(&row.version)
-    } else {
-        println!("SHOULD NOT SEE FOR NOW");
-        true
-    }
+fn krate_match(name: &str, row: &TransitiveDep) -> bool {
+    let matcher = create_matchers(name).expect("failed to parse crate");
+    matcher.name == &row.name && matcher.req.matches(&row.version)
 }
 
 fn draw_graph(krates: &[&str], table: &[TransitiveDep]) {
@@ -403,10 +396,18 @@ fn draw_graph(krates: &[&str], table: &[TransitiveDep]) {
         for i in 0..n {
             let mut y = Vec::new();
             let mut x = Vec::new();
+
+            let mut version = Version::from((0, 0, 0));
+
             for row in table {
-                if version_match(krates[i], row) {
+                if krate_match(krates[i], row) {
                     x.push(float_year(&row.timestamp));
-                    y.push(row.transitive_count);
+                    if version <= row.version {
+                        version = row.version.clone();
+                        y.push(row.transitive_count);
+                    } else {
+                        y.push(row.transitive_count);
+                    }
                 }
             }
 

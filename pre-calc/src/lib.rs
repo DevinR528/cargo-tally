@@ -390,6 +390,29 @@ fn compatible_req(version: &Version) -> VersionReq {
     })
 }
 
+mod key;
+mod noop_hash;
+use key::fnv_key;
+use noop_hash::PreHashedMap;
+
+pub struct CrateLegend(PreHashedMap<u64, (String, Version)>);
+impl CrateLegend {
+    pub fn new() -> CrateLegend {
+        Self(PreHashedMap::default())
+    }
+    // inserts key of hashed crate name and version
+    pub fn insert(&mut self, key: &CrateKey, version: &Version) {
+        let k = fnv_key((&key.name, &version));
+        let v = (key.name.to_string(), version.clone());
+        self.0.insert(k, v);
+    }
+
+    pub fn excluded(&self, name: &str, version: &Version) -> bool {
+        let k = fnv_key((&name, version));
+        self.0.contains_key(&k)
+    }
+}
+
 pub fn pre_compute_graph(crates: Vec<Crate>, pb: &ProgressBar) -> Vec<TransitiveDep> {
     let mut universe = Universe::new();
     // for each version "event" this is the set that holds version releases
