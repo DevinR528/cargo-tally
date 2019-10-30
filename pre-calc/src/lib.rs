@@ -1,6 +1,6 @@
 mod intern;
 
-use cargo_tally::{Dependency, DependencyKind, Feature, DateTime, TransitiveDep};
+use cargo_tally::{CrateLegend, Dependency, DependencyKind, Feature, DateTime, TransitiveDep};
 use fnv::{FnvHashMap as Map, FnvHashSet as Set};
 use indicatif::ProgressBar;
 use log::{debug, info, warn, error};
@@ -56,8 +56,7 @@ pub struct Row {
     pub timestamp: DateTime,
     pub name: CrateName,
     pub num: Version,
-    // pub deps: Vec<Metadata>,
-    pub tran_counts: usize,
+    pub tran_counts: CrateLegend,
     pub dir_counts: usize,
     pub total: usize,
 }
@@ -209,9 +208,15 @@ impl Universe {
             tran_counts: {
                     let key = CrateKey::new(name, index);
                     if let Some(deps) = self.reverse_depends.get(&key) {
-                        deps.len()
+                        let mut cl = CrateLegend::new();
+                        deps.iter().map(|k| {
+                                let ver = &self.crates[&k.name][k.index as usize].num;
+                                (k, ver)
+                            })
+                            .for_each(|(n, v)| cl.insert(&n.name, &v));
+                        cl
                     } else {
-                        0
+                        CrateLegend::new()
                     }
                 },
             dir_counts: {
@@ -388,29 +393,6 @@ fn compatible_req(version: &Version) -> VersionReq {
                 .collect(),
         }],
     })
-}
-
-mod key;
-mod noop_hash;
-use key::fnv_key;
-use noop_hash::PreHashedMap;
-
-pub struct CrateLegend(PreHashedMap<u64, (String, Version)>);
-impl CrateLegend {
-    pub fn new() -> CrateLegend {
-        Self(PreHashedMap::default())
-    }
-    // inserts key of hashed crate name and version
-    pub fn insert(&mut self, key: &CrateKey, version: &Version) {
-        let k = fnv_key((&key.name, &version));
-        let v = (key.name.to_string(), version.clone());
-        self.0.insert(k, v);
-    }
-
-    pub fn excluded(&self, name: &str, version: &Version) -> bool {
-        let k = fnv_key((&name, version));
-        self.0.contains_key(&k)
-    }
 }
 
 pub fn pre_compute_graph(crates: Vec<Crate>, pb: &ProgressBar) -> Vec<TransitiveDep> {

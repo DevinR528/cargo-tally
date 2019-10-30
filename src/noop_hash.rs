@@ -31,6 +31,7 @@ impl Hasher for NoopHasher {
 
 pub type NoopBuildHasher = BuildHasherDefault<NoopHasher>;
 pub type PreHashedMap<K, V> = HashMap<K, V, NoopBuildHasher>;
+pub type PreHashedSet<K> = std::collections::HashSet<K, NoopBuildHasher>;
 
 #[cfg(test)]
 mod test {

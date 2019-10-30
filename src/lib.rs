@@ -37,7 +37,7 @@ pub struct TransitiveDep {
     pub name: String,
     pub timestamp: DateTime,
     pub version: Version,
-    pub transitive_count: usize,
+    pub transitive_count: CrateLegend,
     pub direct_count: usize,
     pub total: usize,
 }
@@ -114,5 +114,51 @@ impl<'de> Deserialize<'de> for Feature {
             }
             None => Feature::Current(s),
         })
+    }
+}
+
+mod key;
+mod noop_hash;
+use key::fnv_key;
+use noop_hash::{PreHashedMap, PreHashedSet};
+use std::iter::FromIterator;
+
+/// Hash Set not sure if ill need it
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CrateMapping(PreHashedSet<u64>);
+impl CrateMapping {
+    pub fn new() -> CrateMapping {
+        Self(PreHashedSet::default())
+    }
+    pub fn from<I: IntoIterator<Item=u64>>(iter: I) -> CrateMapping {
+         Self(PreHashedSet::from_iter(iter))
+    }
+    pub fn insert(&mut self, key: &str, version: &Version) {
+        let k = fnv_key((&key, &version));
+        self.0.insert(k);
+    }
+}
+
+/// The hashmap one this will be used
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CrateLegend(PreHashedMap<u64, usize>);
+impl CrateLegend {
+    pub fn new() -> CrateLegend {
+        Self(PreHashedMap::default())
+    }
+    // inserts key of hashed crate name and version
+    pub fn insert(&mut self, key: &str, version: &Version) {
+        let k = fnv_key((&key, &version));
+        *self.0.entry(k).or_insert(0) += 1;
+    }
+
+    pub fn excluded(&self, key: &str, version: &Version) -> bool {
+        let k = fnv_key((&key, version));
+        self.0.contains_key(&k)
+    }
+}
+impl std::hash::Hash for CrateLegend {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.keys().for_each(|k| k.hash(state))
     }
 }
