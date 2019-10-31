@@ -71,7 +71,7 @@ fn try_main() -> Result<()> {
     // write_json(f_out, krates)?;
 
     let pb = setup_progress_bar(5_448_100);
-    let searching = ["serde:0.5", "serde:0.6", "serde:0.7", "serde:0.8", "serde:0.9", "serde:1.0"];
+    let searching = ["serde"];
     // load_computed sorts array
     let table = load_computed(&pb, f_out)?
         .into_par_iter()
